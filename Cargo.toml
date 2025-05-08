@@ -1,0 +1,11 @@
+[package]
+name = "windortortent"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.45.0", features = ["fs", "process"] }
+win32_notif = "0.4.2"
+windows = { version = "0.61.1", features = ["Management_Deployment"] }
+windows-collections = "0.2.0"
+windows-future = "0.2.0"
