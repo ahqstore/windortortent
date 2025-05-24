@@ -1,8 +1,7 @@
 use windows::{
-  core::{Ref, Result, HSTRING}, Foundation::Uri, Management::Deployment::{DeploymentOptions, DeploymentProgress, DeploymentResult, PackageManager}
+  core::{Error, Result, HSTRING}, ApplicationModel::Package, Foundation::Uri, Management::Deployment::{DeploymentOptions, PackageManager}
 };
 use windows_collections::IIterable;
-use windows_future::{AsyncOperationProgressHandler, IAsyncOperationWithProgress};
 
 pub struct UWPPackageManager(PackageManager);
 
@@ -22,10 +21,30 @@ impl UWPPackageManager {
       DeploymentOptions::InstallAllResources
     )?;
 
-    prog.SetProgress(&AsyncOperationProgressHandler::new(|a: Ref<IAsyncOperationWithProgress<DeploymentResult, DeploymentProgress>>, b: Ref<DeploymentProgress>| {
-      Ok(())
-    }))?;
+    let result = prog.await?;
 
-    Ok(())
+    result.ExtendedErrorCode()?.ok()
+  }
+
+
+  pub async fn remove(&self, path: &str) -> Result<()> {
+    let uri = Uri::CreateUri(&HSTRING::from(path))?;
+    
+    let result = self.0.RemovePackageByUriAsync(
+      &uri,
+      None
+    )?.await?;
+
+    result.ExtendedErrorCode()?.ok()
+  }
+
+  pub fn get_intalled_info_sync(&self, app_name: &str, publisher: &str) -> Result<Vec<Package>> {
+    let pkg = self.0.FindPackagesByNamePublisher(
+      &HSTRING::from(app_name),
+      &HSTRING::from(publisher)
+    )?;
+
+    Ok(pkg.into_iter()
+      .collect::<Vec<_>>())
   }
 }
