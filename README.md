@@ -2,13 +2,13 @@
 
 **Windortent** is a Windows-exclusive installer module for the [AHQ Store](https://github.com/ahqstore/client), designed to handle executable-based application formats.
 
-It supports `.exe` and `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
+It supports `.exe`, `.msi` and `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
 
 ---
 
 ## Features
 
-- ✅ Installs `.exe` and `.msix` application files
+- ✅ Installs `.exe`, `.msi` and `.msix` application files
 - ✅ Parses and executes `.exec` manifests
 - ✅ Supports custom icons and descriptions
 - ✅ Integrated directly with the AHQ Store’s Windows installation flow

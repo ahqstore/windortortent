@@ -4,11 +4,25 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = { version = "1", features = ["fs", "process", "time"] }
-win32_notif = "0.7"
 windows = { version = "0.61", features = [
   "Management_Deployment",
   "ApplicationModel",
+  "Win32_Security",
+  "Win32_System_Threading",
+  "Win32_Security_Authorization",
+  "Win32_System_ApplicationInstallationAndServicing",
 ] }
-windows-collections = "0.2"
-windows-future = "0.2"
+tokio = { version = "1", features = [
+  "fs",
+  "process",
+  "time",
+  "test-util",
+  "macros",
+] }
+zip = { version = "4.0.0" }
+windows-core = "0.61.2"
+windows-future = "0.2.1"
+
+[features]
+deafult = []
+metadata = []
