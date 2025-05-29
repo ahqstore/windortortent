@@ -7,6 +7,7 @@ use windows::{
     System::Threading::{GetCurrentProcess, OpenProcessToken},
   }
 };
+pub mod metadata;
 
 pub struct UWPPackageManager(PackageManager);
 
