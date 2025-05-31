@@ -24,7 +24,7 @@ pub struct Identity {
   pub publisher: String,
 }
 
-use super::UWPPackageManager;
+use super::MSIXPackageManager;
 
 #[non_exhaustive]
 #[derive(Debug)]
@@ -32,7 +32,7 @@ pub struct MsixBundle {
   pub path: String,
   pub identity: Identity,
   pub full_name: Option<String>,
-  pub manager: Arc<UWPPackageManager>
+  pub manager: Arc<MSIXPackageManager>
 }
 
 impl AsRef<str> for MsixBundle {
@@ -83,7 +83,7 @@ impl From<tokio::io::Error> for MsixBundleError {
 }
 
 impl MsixBundle {
-  pub async fn load<T: AsRef<Path>>(path: T, manager: &Arc<UWPPackageManager>) -> MsixBundleResult<Self> {
+  pub async fn load<T: AsRef<Path>>(path: T, manager: &Arc<MSIXPackageManager>) -> MsixBundleResult<Self> {
     let path = tokio::fs::canonicalize(path).await?;
     let path = path.to_str().unwrap_or("");
     let path = path.get(4..).unwrap_or("");

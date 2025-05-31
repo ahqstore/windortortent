@@ -7,11 +7,11 @@ pub use windows::ApplicationModel::Package;
 #[cfg(test)]
 mod test {
   #[tokio::test]
-  async fn run_test() {
+  async fn run_msix() {
     use crate::winrt::metadata::MsixBundle; 
-    use crate::winrt::UWPPackageManager;
+    use crate::winrt::MSIXPackageManager;
 
-    let manager = UWPPackageManager::new().unwrap();
+    let manager = MSIXPackageManager::new().unwrap();
     let mut x = MsixBundle::load("./app.Msixbundle", &manager).await.unwrap();
 
     println!("{x:#?}");

@@ -12,7 +12,7 @@ use windows::{
 pub mod metadata;
 
 #[derive(Debug)]
-pub struct UWPPackageManager(PackageManager);
+pub struct MSIXPackageManager(PackageManager);
 
 pub fn get_user_sid_string() -> Result<HSTRING> {
   unsafe {
@@ -46,7 +46,7 @@ pub fn get_user_sid_string() -> Result<HSTRING> {
   }
 }
 
-impl UWPPackageManager {
+impl MSIXPackageManager {
   pub fn new() -> Result<Arc<Self>> {
     Ok(Arc::new(Self(PackageManager::new()?)))
   }
