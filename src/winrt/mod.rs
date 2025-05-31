@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use windows::{
-  core::{Result, HSTRING, PWSTR}, ApplicationModel::Package, Foundation::Uri, Management::Deployment::{DeploymentOptions, PackageManager, RemovePackageOptions}, Win32::{
+  core::{Result, HSTRING, PWSTR}, ApplicationModel::Package, Foundation::Uri, Management::Deployment::{DeploymentOptions, PackageManager}, Win32::{
     Foundation::HANDLE,
     Security::{
       Authorization::ConvertSidToStringSidW, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER
@@ -9,6 +11,7 @@ use windows::{
 };
 pub mod metadata;
 
+#[derive(Debug)]
 pub struct UWPPackageManager(PackageManager);
 
 pub fn get_user_sid_string() -> Result<HSTRING> {
@@ -44,8 +47,8 @@ pub fn get_user_sid_string() -> Result<HSTRING> {
 }
 
 impl UWPPackageManager {
-  pub fn new() -> Result<Self> {
-    Ok(Self(PackageManager::new()?))
+  pub fn new() -> Result<Arc<Self>> {
+    Ok(Arc::new(Self(PackageManager::new()?)))
   }
 
   pub async fn install<T: AsRef<str>>(&self, path: T) -> Result<()> {
@@ -64,10 +67,10 @@ impl UWPPackageManager {
     result.ExtendedErrorCode()?.ok()
   }
 
-  pub async fn remove<T: AsRef<str>>(&self, path: T) -> Result<()> {
-    let uri = Uri::CreateUri(&HSTRING::from(path.as_ref()))?;
-
-    let result = self.0.RemovePackageByUriAsync(&uri, &RemovePackageOptions::new()?)?.await?;
+  pub async fn remove<T: AsRef<str>>(&self, full_name: T) -> Result<()> {
+    let full_name = full_name.as_ref();
+    let full_name = HSTRING::from(full_name);
+    let result = self.0.RemovePackageAsync(&full_name)?.await?;
 
     result.ExtendedErrorCode()?.ok()
   }

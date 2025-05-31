@@ -6,59 +6,27 @@ pub use windows::ApplicationModel::Package;
 
 #[cfg(test)]
 mod test {
-  use std::fs;
-
   #[tokio::test]
-  async fn install() {
+  async fn run_test() {
+    use crate::winrt::metadata::MsixBundle; 
     use crate::winrt::UWPPackageManager;
 
-    let man = UWPPackageManager::new().unwrap();
+    let manager = UWPPackageManager::new().unwrap();
+    let mut x = MsixBundle::load("./app.Msixbundle", &manager).await.unwrap();
 
-    let path = fs::canonicalize("./app.Msixbundle").unwrap();
-    let path = path.to_str().unwrap().replace(r"\\?\", "");
+    println!("{x:#?}");
 
-    man.install(format!("file://{path}")).await.unwrap();
-  }
+    x.install().await.unwrap();
+    
+    println!("Installed!");
 
-  #[tokio::test]
-  #[cfg(feature = "metadata")]
-  async fn run_metadata_test() {
-    use crate::winrt::UWPPackageManager;
+    #[allow(deprecated)]
+    let inst = unsafe { x.async_unsafe_is_installed().await.unwrap() };
 
-    let man = UWPPackageManager::new().unwrap();
+    println!("Installed: {inst}");
 
-    let path = fs::canonicalize("./app.Msixbundle").unwrap();
-    let path = path.to_str().unwrap().replace(r"\\?\", "");
+    x.uninstall().await.unwrap();
 
-    man.get_intalled_info_sync(
-
-    ).await.unwrap();
-  }
-
-  #[tokio::test]
-  #[cfg(feature = "metadata")]
-  async fn get_installed_package() {
-    use crate::winrt::UWPPackageManager;
-
-    let man = UWPPackageManager::new().unwrap();
-
-    let path = fs::canonicalize("./app.Msixbundle").unwrap();
-    let path = path.to_str().unwrap().replace(r"\\?\", "");
-
-    man.get_intalled_info_sync(
-
-    ).await.unwrap();
-  }
-
-  #[tokio::test]
-  async fn uninstall() {
-    use crate::winrt::UWPPackageManager;
-
-    let man = UWPPackageManager::new().unwrap();
-
-    let path = fs::canonicalize("./app.Msixbundle").unwrap();
-    let path = path.to_str().unwrap().replace(r"\\?\", "");
-
-    man.remove(format!("file://{path}")).await.unwrap();
+    println!("Uninstalled!");
   }
 }
