@@ -42,6 +42,13 @@ impl MsiPackage {
     }
   }
 
+  pub fn is_installed(&self) -> bool {
+    match self.product_state() {
+      ProductState::Installed => true,
+      _ => false
+    }
+  }
+
   pub fn install(&self) -> Result<()> {
     unsafe {
       let hstring = HSTRING::from(self.0.as_ref() as &str);

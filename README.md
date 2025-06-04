@@ -2,14 +2,13 @@
 
 **Windortent** is a Windows-exclusive installer module for the [AHQ Store](https://github.com/ahqstore/client), designed to handle executable-based application formats.
 
-It supports `.exe`, `.msi` and `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
+It supports `.exe`, `.msi`, `.zip`, `.ahqdb`, `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
 
 ---
 
 ## Features
 
-- ✅ Installs `.exe`, `.msi` and `.msix` application files
-- ✅ Parses and executes `.exec` manifests
+- ✅ Installs `.exe`, `.msi`, `.ahqdb`, `.zip` and `.msix` application files
 - ✅ Supports custom icons and descriptions
 - ✅ Integrated directly with the AHQ Store’s Windows installation flow
 
@@ -17,48 +16,22 @@ It supports `.exe`, `.msi` and `.msix` application bundles, enabling seamless in
 
 ## Supported Formats
 
-| Format  | Description                  |
-| ------- | ---------------------------- |
-| `.exe`  | Standard Windows executables |
-| `.msix` | Windows application packages |
+| Format   | Description                  |
+| -------- | ---------------------------- |
+| `.exe`   | Standard Windows executables |
+| `.msix`  | Windows application packages |
+| `.msi`   | Standard Windows installers  |
+| `.zip`   | Compressed application files |
+| `.ahqdb` | AHQ Store database files     |
 
----
-
-## `.exec` Manifest Specification
-
-> This is only meant to be taken as a reference
-
-Each Windortent app includes an `.exec` file that defines how the application should be executed:
-
-```json
-{
-  "exe": "path/to/app.exe",
-  "args": "--start --mode=full",
-  "icon": "optional/icon/path.ico",
-  "desc": "Optional description of the application"
-}
-```
-
-### Field Breakdown
-
-| Field  | Type   | Description                                       |
-| ------ | ------ | ------------------------------------------------- |
-| `exe`  | string | Path to the executable (relative to package root) |
-| `args` | string | Optional command-line arguments                   |
-| `icon` | string | Optional path to an icon file                     |
-| `desc` | string | Optional description of the application           |
-
-> Note: `args` is a **string**, consistent with Windows API usage and `.desktop`-style launching logic.
+> Note: The `.ahqdb` format is a custom format used by the AHQ Store to store application metadata.
 
 ---
 
 ## Installation Flow
 
 1. AHQ Store recognizes the installer as Windortent-compatible.
-2. The `.msix` or `.exe` file is unpacked or executed directly.
-3. The `.exec` manifest is parsed for metadata.
-4. The application is launched with the specified arguments.
-5. Optionally, icons and descriptions are used for shortcuts or AHQ Store entries.
+2. The installer is downloaded and extracted.
 
 ---
 
@@ -76,5 +49,11 @@ Please submit issues or feature requests to the [AHQ Store GitHub repository](ht
 
 ## Maintained By
 
-1. **AHQ Softwares**:
+1. **A. Chakraborty**:
+   [@ahqsoftwares](https://github.com/ahqsoftwares)
+
+2. **AHQ Softwares**:
    [@AHQ-Softwares](https://github.com/AHQ-Softwares)
+
+3. **AHQ Store**:
+   [@ahqstore](https://github.com/ahqstore)

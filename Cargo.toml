@@ -7,8 +7,11 @@ edition = "2024"
 windows = { version = "0.61", features = [
   "Management_Deployment",
   "ApplicationModel",
+  "Win32_UI_Shell",
   "Win32_Security",
+  "Win32_System_Com",
   "Win32_System_Threading",
+  "Win32_System_Antimalware",
   "Win32_Security_Authorization",
   "Win32_System_ApplicationInstallationAndServicing",
 ] }
@@ -19,11 +22,11 @@ tokio = { version = "1", features = [
   "test-util",
   "macros",
 ] }
-zip = { version = "4.0.0" }
-windows-core = "0.61.2"
-windows-future = "0.2.1"
-serde = { version = "1.0.219", features = ["derive"] }
-serde-xml-rs = "0.8.0"
+zip = { version = "4" }
+windows-core = "0.61"
+windows-future = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-xml-rs = "0.8"
 
 [features]
 deafult = []

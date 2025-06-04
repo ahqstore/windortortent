@@ -164,7 +164,7 @@ impl MsixBundle {
     Ok(self.full_name.is_some())
   }
 
-  /// Use [async_is_installed] instead
+  /// Use [MsixBundle::async_is_installed] instead
   /// 
   /// ***SAFETY***
   /// 
