@@ -1121,7 +1121,7 @@ pub mod av {
     pub fn test() {
         let ctx: HAMSICONTEXT = unsafe {
             AmsiInitialize({
-                    const INPUT: &[u8] = "Windortent".as_bytes();
+                    const INPUT: &[u8] = "Windortortent".as_bytes();
                     const OUTPUT_LEN: usize = ::windows_strings::utf16_len(INPUT) + 1;
                     const OUTPUT: &[u16; OUTPUT_LEN] = {
                         let mut buffer = [0; OUTPUT_LEN];

@@ -1,6 +1,10 @@
-# Windortent
+![Windortortent - Your Universal Windows Application Installer / Social Image](./readme/social.png)
 
-**Windortent** is a Windows-exclusive installer module for the [AHQ Store](https://github.com/ahqstore/client), designed to handle executable-based application formats.
+# <img src="./readme/icon.png" height="21" /> Windortortent
+
+> A part of **<img src="https://ahqstore.github.io/favicon.png" height="12" /> AHQ Store** Project
+
+**Windortortent** is a Windows-exclusive installer module for the [AHQ Store](https://github.com/ahqstore/client), designed to handle executable-based application formats.
 
 It supports `.exe`, `.msi`, `.zip`, `.ahqdb`, `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
 
@@ -30,7 +34,7 @@ It supports `.exe`, `.msi`, `.zip`, `.ahqdb`, `.msix` application bundles, enabl
 
 ## Installation Flow
 
-1. AHQ Store recognizes the installer as Windortent-compatible.
+1. AHQ Store recognizes the installer as Windortortent-compatible.
 2. The installer is downloaded and extracted.
 
 ---
