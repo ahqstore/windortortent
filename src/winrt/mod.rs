@@ -1,13 +1,18 @@
 use std::sync::Arc;
 
 use windows::{
-  core::{Result, HSTRING, PWSTR}, ApplicationModel::Package, Foundation::Uri, Management::Deployment::{DeploymentOptions, PackageManager}, Win32::{
+  ApplicationModel::Package,
+  Foundation::Uri,
+  Management::Deployment::{DeploymentOptions, PackageManager},
+  Win32::{
     Foundation::HANDLE,
     Security::{
-      Authorization::ConvertSidToStringSidW, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER
+      Authorization::ConvertSidToStringSidW, GetTokenInformation, TOKEN_QUERY, TOKEN_USER,
+      TokenUser,
     },
     System::Threading::{GetCurrentProcess, OpenProcessToken},
-  }
+  },
+  core::{HSTRING, PWSTR, Result},
 };
 pub mod metadata;
 
@@ -75,7 +80,11 @@ impl MSIXPackageManager {
     result.ExtendedErrorCode()?.ok()
   }
 
-  pub fn get_intalled_info_sync<T: AsRef<str>, E: AsRef<str>>(&self, app_name: T, publisher: E) -> Result<Vec<Package>> {
+  pub fn get_intalled_info_sync<T: AsRef<str>, E: AsRef<str>>(
+    &self,
+    app_name: T,
+    publisher: E,
+  ) -> Result<Vec<Package>> {
     let pkg = self.0.FindPackagesByUserSecurityIdNamePublisher(
       &get_user_sid_string()?,
       &HSTRING::from(app_name.as_ref()),

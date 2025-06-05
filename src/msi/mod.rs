@@ -1,9 +1,12 @@
 use std::fs;
 
 use windows::{
-  core::w, Win32::System::ApplicationInstallationAndServicing::{
-    MsiCloseHandle, MsiDatabaseOpenViewW, MsiInstallProductW, MsiOpenDatabaseW, MsiQueryProductStateW, MsiRecordGetStringW, MsiViewExecute, MsiViewFetch, INSTALLSTATE_ABSENT, INSTALLSTATE_ADVERTISED, INSTALLSTATE_DEFAULT, INSTALLSTATE_UNKNOWN, MSIDBOPEN_READONLY, MSIHANDLE
-  }
+  Win32::System::ApplicationInstallationAndServicing::{
+    INSTALLSTATE_ABSENT, INSTALLSTATE_ADVERTISED, INSTALLSTATE_DEFAULT, INSTALLSTATE_UNKNOWN,
+    MSIDBOPEN_READONLY, MSIHANDLE, MsiCloseHandle, MsiDatabaseOpenViewW, MsiInstallProductW,
+    MsiOpenDatabaseW, MsiQueryProductStateW, MsiRecordGetStringW, MsiViewExecute, MsiViewFetch,
+  },
+  core::w,
 };
 use windows_core::{HRESULT, HSTRING, PCWSTR, PWSTR, Result};
 
@@ -16,28 +19,27 @@ pub enum ProductState {
   AdvertisedButNotInstalled = 1,
   InstalledForDifferentUser = 2,
   Installed = 5,
-  Unknown
+  Unknown,
 }
 
 impl MsiPackage {
-  pub unsafe fn new_from_product_code<E: Into<String>, T: Into<String>>(path: E, product_code: T) -> Result<MsiPackage> {
+  pub unsafe fn new_from_product_code<E: Into<String>, T: Into<String>>(
+    path: E,
+    product_code: T,
+  ) -> Result<MsiPackage> {
     Ok(MsiPackage(path.into(), product_code.into()))
   }
 
   pub fn product_state(&self) -> ProductState {
     unsafe {
-      let data = PCWSTR::from_raw(
-        HSTRING::from(self.1.as_ref() as &str).as_ptr()
-      );
+      let data = PCWSTR::from_raw(HSTRING::from(self.1.as_ref() as &str).as_ptr());
 
-      match MsiQueryProductStateW(
-        data
-      ) {
+      match MsiQueryProductStateW(data) {
         INSTALLSTATE_ABSENT => ProductState::InstalledForDifferentUser,
         INSTALLSTATE_ADVERTISED => ProductState::AdvertisedButNotInstalled,
         INSTALLSTATE_DEFAULT => ProductState::Installed,
         INSTALLSTATE_UNKNOWN => ProductState::NotInstalled,
-        _ => ProductState::Unknown
+        _ => ProductState::Unknown,
       }
     }
   }
@@ -45,7 +47,7 @@ impl MsiPackage {
   pub fn is_installed(&self) -> bool {
     match self.product_state() {
       ProductState::Installed => true,
-      _ => false
+      _ => false,
     }
   }
 
@@ -53,14 +55,9 @@ impl MsiPackage {
     unsafe {
       let hstring = HSTRING::from(self.0.as_ref() as &str);
 
-      let path = PCWSTR::from_raw(
-        hstring.as_ptr()
-      );
+      let path = PCWSTR::from_raw(hstring.as_ptr());
 
-      let res = MsiInstallProductW(
-        path,
-        w!("ACTION=INSTALL UILevel=3")
-      );
+      let res = MsiInstallProductW(path, w!("ACTION=INSTALL UILevel=3"));
 
       HRESULT::from_win32(res).ok()?;
 
@@ -72,14 +69,9 @@ impl MsiPackage {
     unsafe {
       let hstring = HSTRING::from(self.0.as_ref() as &str);
 
-      let path = PCWSTR::from_raw(
-        hstring.as_ptr()
-      );
+      let path = PCWSTR::from_raw(hstring.as_ptr());
 
-      let res = MsiInstallProductW(
-        path,
-        w!("REMOVE=ALL UILevel=3")
-      );
+      let res = MsiInstallProductW(path, w!("REMOVE=ALL UILevel=3"));
 
       HRESULT::from_win32(res).ok()?;
 

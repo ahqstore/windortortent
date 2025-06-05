@@ -1,8 +1,8 @@
-pub mod winrt;
-pub mod msi;
-pub mod exe;
-pub mod zip;
 pub mod av;
+pub mod exe;
+pub mod msi;
+pub mod winrt;
+pub mod zip;
 
 pub mod utils;
 
@@ -13,11 +13,11 @@ pub type ApplicationPackage = Package;
 
 #[cfg(test)]
 mod test {
-    use windows::Win32::System::Com::CoInitialize;
+  use windows::Win32::System::Com::CoInitialize;
 
-    use crate::utils::user_desktop;
-    use crate::zip::link::{link, Type};
-    use crate::zip::ZipShortcut;
+  use crate::utils::user_desktop;
+  use crate::zip::link::{Type, link};
+  use crate::zip::{ZipInstaller, ZipShortcut};
 
   #[tokio::test]
   async fn run_msix() {
@@ -27,18 +27,21 @@ mod test {
 
     println!("{}", user_desktop().unwrap());
 
-    link(
-      &ZipShortcut {
-        args: Some("--nothing guys"),
-        description: Some("Some high level wizardry"),
+    let mut app = ZipInstaller::new(
+      "./scrcpy.zip",
+      ZipShortcut {
+        name: "Scrcpy",
         exe: "scrcpy.exe",
-        icon: Some((r"C:\Users\Windows\Downloads\icon.ico", 0)),
-        name: "AHQ Softwares"
+        args: None,
+        icon: None,
+        description: Some("Screen Mirroring for Android"),
+        desktop: true,
+        start_menu_dir: Some("AHQ Store Applications")
       },
-      format!("./data"),
-      Type::AllUsers
-    ).await.unwrap();
-    // use crate::winrt::metadata::MsixBundle; 
+    )
+    .unwrap();
+    app.install("./dist", Type::CurrentUser).unwrap();
+    // use crate::winrt::metadata::MsixBundle;
     // use crate::winrt::MSIXPackageManager;
 
     // let manager = MSIXPackageManager::new().unwrap();
@@ -47,7 +50,7 @@ mod test {
     // println!("{x:#?}");
 
     // x.install().await.unwrap();
-    
+
     // println!("Installed!");
 
     // #[allow(deprecated)]

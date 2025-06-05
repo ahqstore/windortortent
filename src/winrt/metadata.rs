@@ -5,13 +5,13 @@ use windows_core::Result as Win32Result;
 
 use zip::read::ZipArchive;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_xml_rs::from_str;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Bundle {
   #[serde(rename = "Identity")]
-  pub identity: Identity
+  pub identity: Identity,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub struct MsixBundle {
   pub path: String,
   pub identity: Identity,
   pub full_name: Option<String>,
-  pub manager: Arc<MSIXPackageManager>
+  pub manager: Arc<MSIXPackageManager>,
 }
 
 impl AsRef<str> for MsixBundle {
@@ -49,7 +49,7 @@ pub enum MsixBundleError {
   TokioIO(tokio::io::Error),
   ZipError(zip::result::ZipError),
   Serde(serde_xml_rs::Error),
-  Win32(windows_core::Error)
+  Win32(windows_core::Error),
 }
 
 impl From<windows_core::Error> for MsixBundleError {
@@ -83,7 +83,10 @@ impl From<tokio::io::Error> for MsixBundleError {
 }
 
 impl MsixBundle {
-  pub async fn load<T: AsRef<Path>>(path: T, manager: &Arc<MSIXPackageManager>) -> MsixBundleResult<Self> {
+  pub async fn load<T: AsRef<Path>>(
+    path: T,
+    manager: &Arc<MSIXPackageManager>,
+  ) -> MsixBundleResult<Self> {
     let path = tokio::fs::canonicalize(path).await?;
     let path = path.to_str().unwrap_or("");
     let path = path.get(4..).unwrap_or("");
@@ -99,7 +102,9 @@ impl MsixBundle {
 
       let mut string = String::new();
 
-      archive.by_name("AppxMetadata/AppxBundleManifest.xml")?.read_to_string(&mut string)?;
+      archive
+        .by_name("AppxMetadata/AppxBundleManifest.xml")?
+        .read_to_string(&mut string)?;
 
       let bundle: Bundle = from_str(&string)?;
 
@@ -107,20 +112,21 @@ impl MsixBundle {
         path,
         identity: bundle.identity,
         full_name: None,
-        manager
+        manager,
       };
 
       bundle.reload_install_status()?;
 
-      MsixBundleResult::Ok(
-        bundle
-      )
-    }).await?
+      MsixBundleResult::Ok(bundle)
+    })
+    .await?
   }
 
   pub fn reload_install_status(&mut self) -> MsixBundleResult<()> {
     let identity = &self.identity;
-    let info = self.manager.get_intalled_info_sync(&identity.name, &identity.publisher)?;
+    let info = self
+      .manager
+      .get_intalled_info_sync(&identity.name, &identity.publisher)?;
 
     let pkg = info.into_iter().find(|x| {
       (|| {
@@ -131,17 +137,18 @@ impl MsixBundle {
           Build,
           Major,
           Minor,
-          Revision
+          Revision,
         } = x.Id()?.Version()?;
 
         let version = format!("{Major}.{Minor}.{Build}.{Revision}");
 
         Win32Result::Ok(
-          &identity.name == &name &&
-          &identity.publisher == &author &&
-          &identity.version == &version
+          &identity.name == &name
+            && &identity.publisher == &author
+            && &identity.version == &version,
         )
-      })().unwrap_or(false)
+      })()
+      .unwrap_or(false)
     });
 
     if let Some(pkg) = pkg {
@@ -165,11 +172,11 @@ impl MsixBundle {
   }
 
   /// Use [MsixBundle::async_is_installed] instead
-  /// 
+  ///
   /// ***SAFETY***
-  /// 
+  ///
   /// Await this as soon as you call this function
-  /// 
+  ///
   /// THIS FUNCTION USES `UNSAFE` CASTING TO MARK THE VARIABLE AS &'static
   #[deprecated(
     since = "0.1.0",
@@ -178,13 +185,9 @@ impl MsixBundle {
   pub async unsafe fn async_unsafe_is_installed<'a>(&'a mut self) -> Result<bool, MsixBundleError> {
     let me: &'static mut MsixBundle = unsafe { &mut *(self as *mut _) as &'static mut _ };
 
-    let is_installed = spawn_blocking(|| {
-      me.is_installed()
-    }).await??;
+    let is_installed = spawn_blocking(|| me.is_installed()).await??;
 
-    Ok(
-      is_installed
-    )
+    Ok(is_installed)
   }
 
   #[allow(unused_mut)]
@@ -195,17 +198,14 @@ impl MsixBundle {
       let result = me.is_installed()?;
 
       MsixBundleResult::Ok((me, result))
-    }).await??;
+    })
+    .await??;
 
-    Ok(
-      is_installed
-    )
+    Ok(is_installed)
   }
 
   pub async fn uninstall(&self) -> Win32Result<()> {
-    let full_name = self.full_name
-      .as_ref()
-      .map_or_else(|| "", |x| x.as_str());
+    let full_name = self.full_name.as_ref().map_or_else(|| "", |x| x.as_str());
 
     self.manager.remove(full_name).await
   }
