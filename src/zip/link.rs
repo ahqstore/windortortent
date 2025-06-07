@@ -1,9 +1,9 @@
-use std::ptr::null_mut;
+use std::{borrow::Cow, ptr::null_mut};
 
 use std::fs;
 
 use crate::{
-  utils::{common_desktop, user_desktop},
+  utils::{common_desktop, common_start_menu, user_desktop, user_start_menu},
   zip::ZipShortcut,
 };
 
@@ -14,12 +14,46 @@ use windows::Win32::{
 use windows_core::Interface;
 use windows_core::{HSTRING, PCWSTR, Result};
 
+#[derive(Debug)]
 pub enum Type {
   CurrentUser,
   AllUsers,
 }
 
-pub fn link<'a, T: AsRef<str>>(link: &ZipShortcut<'a>, cwd: T, folder: Type) -> Result<()> {
+#[derive(Debug)]
+pub enum ShortcutCreationInfo {
+  AllOk,
+  DesktopShortcutNotCreated,
+}
+
+pub fn unlink<'a>(link: &ZipShortcut<'a>, app_id: &str, folder: Type) -> Result<()> {
+  let (desktop, mut start) = match folder {
+    Type::AllUsers => (Cow::Borrowed(common_desktop()), common_start_menu()),
+    Type::CurrentUser => (Cow::Owned(user_desktop()?), user_start_menu()?)
+  };
+
+  if let Some(dir) = link.start_menu_dir {
+    start.push(dir);
+    start.push(app_id);
+  }
+
+  fs::remove_dir_all(start)?;
+
+  let src = format!(r"{desktop}\{} ({}).lnk", link.name, app_id);
+
+  _ = fs::remove_file(
+    src
+  );
+
+  Ok(())  
+}
+
+pub fn link<'a, T: AsRef<str>>(
+  link: &ZipShortcut<'a>,
+  cwd: T,
+  app_id: &str, 
+  folder: Type,
+) -> Result<ShortcutCreationInfo> {
   unsafe {
     let data: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
 
@@ -59,18 +93,50 @@ pub fn link<'a, T: AsRef<str>>(link: &ZipShortcut<'a>, cwd: T, folder: Type) -> 
 
     let file: IPersistFile = IPersistFile::from_raw(file);
 
-    if link.desktop {
-      let fl = match folder {
-        Type::CurrentUser => format!(r"{}\{}.lnk", user_desktop()?, link.name),
-        Type::AllUsers => format!(r"{}\{}.lnk", common_desktop(), link.name),
-      };
-      println!("{}", fl);
-      let hstr = HSTRING::from(fl.as_str());
-      let string = PCWSTR::from_raw(hstr.as_ptr());
+    let mut start = match folder {
+      Type::CurrentUser => user_start_menu()?,
+      Type::AllUsers => common_start_menu(),
+    };
 
-      file.Save(string, true)?;
+    if let Some(dir) = link.start_menu_dir {
+      start.push(dir);
     }
 
-    Ok(())
+    start.push(app_id);
+    _ = fs::create_dir_all(&start);
+
+    start.push(format!("{}.lnk", link.name));
+
+    let start = start.to_string_lossy();
+
+    let fl = HSTRING::from(&start as &str);
+    let string = PCWSTR::from_raw(fl.as_ptr());
+
+    file.Save(string, true)?;
+
+    let mut status = ShortcutCreationInfo::AllOk;
+
+    if link.desktop {
+      let fl = match folder {
+        Type::CurrentUser => format!(r"{}\{} ({}).lnk", user_desktop()?, link.name, app_id),
+        Type::AllUsers => format!(r"{}\{} ({}).lnk", common_desktop(), link.name, app_id),
+      };
+      let hstr = HSTRING::from(fl.as_str());
+      let pt = hstr.as_ptr();
+      let string = PCWSTR::from_raw(pt);
+
+      if let Err(_) = file.Save(string, true) {
+        status = ShortcutCreationInfo::DesktopShortcutNotCreated;
+      }
+
+      drop(hstr);
+      drop(fl);
+    }
+
+    drop(pszfile);
+    drop(start);
+    drop(fl);
+
+    Ok(status)
   }
 }

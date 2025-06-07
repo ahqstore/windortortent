@@ -6,10 +6,11 @@ pub use zip::result::ZipError;
 pub use zip::write::ZipWriter;
 
 use crate::utils::is_admin;
-use crate::zip::link::Type;
+use crate::zip::link::{ShortcutCreationInfo, Type};
 
 #[derive(Debug)]
 pub struct ZipInstaller<'a> {
+  id: &'a str,
   file: ZipArchive<File>,
   shortcut: ZipShortcut<'a>,
 }
@@ -53,17 +54,34 @@ impl From<windows::core::Error> for ZipInstallError {
 }
 
 impl<'a> ZipInstaller<'a> {
-  pub fn new<T: AsRef<str>>(file: T, data: ZipShortcut<'a>) -> Result<Self, ZipInstallError> {
+  pub fn new<T: AsRef<str>>(file: T, id: &'a str, data: ZipShortcut<'a>) -> Result<Self, ZipInstallError> {
     let file = file.as_ref();
     let file = File::open(file).map_err(ZipInstallError::StdIO)?;
 
     Ok(ZipInstaller {
       file: ZipArchive::new(file)?,
+      id,
       shortcut: data,
     })
   }
 
-  pub fn install<T: AsRef<str>>(&mut self, dir: T, ty: Type) -> Result<(), ZipInstallError> {
+  pub fn install<T: AsRef<str>>(
+    &mut self,
+    dir: T,
+    ty: Type,
+  ) -> Result<ShortcutCreationInfo, ZipInstallError> {
+    is_admin()
+      .map_err(ZipInstallError::Windows)
+      .and_then(|is_admin| {
+        if !is_admin {
+          if let Type::AllUsers = ty {
+            return Err(ZipInstallError::NotElevated);
+          }
+        }
+
+        Ok(())
+      })?;
+
     // Ensuring a cleaned directory
     _ = fs::remove_dir_all(dir.as_ref());
     _ = fs::create_dir_all(dir.as_ref());
@@ -71,30 +89,39 @@ impl<'a> ZipInstaller<'a> {
     let res = self
       .file
       .extract(dir.as_ref())
-      .map_err(ZipInstallError::ZipError)
-      .and(
-        // Check if elevated
-        is_admin()
-          .map_err(ZipInstallError::Windows)
-          .and_then(|is_admin| {
-            if !is_admin {
-              if let Type::AllUsers = ty {
-                return Err(ZipInstallError::NotElevated);
-              }
-            }
-
-            Ok(())
-          }),
-      );
+      .map_err(ZipInstallError::ZipError);
 
     if res.is_err() {
       // Cleanup
       _ = fs::remove_dir_all(dir.as_ref());
-    } else {
-      // Create Win32 Shortcut
-      link::link(&self.shortcut, dir.as_ref(), ty)?;
     }
 
-    Ok(res?)
+    res?;
+
+    // Create Win32 Shortcut
+    let status = link::link(&self.shortcut, dir.as_ref(), self.id, ty)?;
+
+    Ok(status)
+  }
+
+  pub fn uninstall<T: AsRef<str>>(&mut self, dir: T, ty: Type) -> Result<(), ZipInstallError> {
+    is_admin()
+      .map_err(ZipInstallError::Windows)
+      .and_then(|is_admin| {
+        if !is_admin {
+          if let Type::AllUsers = ty {
+            return Err(ZipInstallError::NotElevated);
+          }
+        }
+
+        Ok(())
+      })?;
+
+    // Ensuring a cleaned directory
+    _ = fs::remove_dir_all(dir.as_ref());
+
+    link::unlink(&self.shortcut, self.id, ty)?;
+
+    Ok(())
   }
 }

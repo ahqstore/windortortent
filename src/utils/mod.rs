@@ -1,3 +1,5 @@
+use std::{fs, path::PathBuf};
+
 use windows::Win32::{
   Foundation::HANDLE,
   Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation},
@@ -62,15 +64,20 @@ pub fn user_profile_dir() -> Result<String> {
 }
 
 pub fn user_desktop() -> Result<String> {
-  Ok(format!("{}\\Desktop", user_profile_dir()?))
+  let desktop_dir = format!("{}\\Desktop", user_profile_dir()?);
+  _ = fs::create_dir_all(&desktop_dir);
+  Ok(desktop_dir)
 }
 
-pub fn user_start_menu() -> Result<String> {
-  Ok(format!(r"{}\AppData\Roaming\Microsoft\Windows\Start Menu", user_profile_dir()?))
+pub fn user_start_menu() -> Result<PathBuf> {
+  Ok(PathBuf::from(format!(
+    r"{}\AppData\Roaming\Microsoft\Windows\Start Menu",
+    user_profile_dir()?
+  )))
 }
 
-pub const fn common_start_menu() -> &'static str {
-  r"C:\ProgramData\Microsoft\Windows\Start Menu"
+pub fn common_start_menu() -> PathBuf {
+  PathBuf::from(r"C:\ProgramData\Microsoft\Windows\Start Menu")
 }
 
 pub const fn common_desktop() -> &'static str {
