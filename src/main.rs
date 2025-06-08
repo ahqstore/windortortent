@@ -11,7 +11,8 @@ fn run_msix() {
     _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
   };
 
-  run_as_admin(r"powershell.exe").unwrap();
+  let code  = run_as_admin(r"powershell.exe", None).unwrap();
+  println!("{code}");
 
   
   // use crate::winrt::metadata::MsixBundle;
