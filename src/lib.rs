@@ -5,8 +5,8 @@ pub mod msi;
 pub mod winrt;
 pub mod zip;
 
-pub mod utils;
 pub mod common;
+pub mod utils;
 
 pub use windows;
 pub use windows::ApplicationModel::Package;

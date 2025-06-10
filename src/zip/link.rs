@@ -14,7 +14,7 @@ use windows::Win32::{
 use windows_core::Interface;
 use windows_core::{HSTRING, PCWSTR, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Type {
   CurrentUser,
   AllUsers,
@@ -29,7 +29,7 @@ pub enum ShortcutCreationInfo {
 pub fn unlink<'a>(link: &ZipShortcut<'a>, app_id: &str, folder: Type) -> Result<()> {
   let (desktop, mut start) = match folder {
     Type::AllUsers => (Cow::Borrowed(common_desktop()), common_start_menu()),
-    Type::CurrentUser => (Cow::Owned(user_desktop()?), user_start_menu()?)
+    Type::CurrentUser => (Cow::Owned(user_desktop()?), user_start_menu()?),
   };
 
   if let Some(dir) = link.start_menu_dir {
@@ -41,17 +41,15 @@ pub fn unlink<'a>(link: &ZipShortcut<'a>, app_id: &str, folder: Type) -> Result<
 
   let src = format!(r"{desktop}\{} ({}).lnk", link.name, app_id);
 
-  _ = fs::remove_file(
-    src
-  );
+  _ = fs::remove_file(src);
 
-  Ok(())  
+  Ok(())
 }
 
 pub fn link<'a, T: AsRef<str>>(
   link: &ZipShortcut<'a>,
   cwd: T,
-  app_id: &str, 
+  app_id: &str,
   folder: Type,
 ) -> Result<ShortcutCreationInfo> {
   unsafe {

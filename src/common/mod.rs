@@ -4,8 +4,8 @@ use std::time::Duration;
 use windows::Win32::Foundation::{HINSTANCE, HWND};
 use windows::Win32::System::Threading::GetExitCodeProcess;
 use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW};
-use windows::core::w;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+use windows::core::w;
 use windows_core::{Error, Result, HRESULT, HSTRING, PCWSTR};
 
 pub fn run_as_admin(path: &str, params: Option<&str>) -> Result<u32> {
@@ -44,7 +44,7 @@ pub fn run_as_admin(path: &str, params: Option<&str>) -> Result<u32> {
     }
 
     let mut exit_code = 0u32;
-    
+
     loop {
       GetExitCodeProcess(hprocess, &mut exit_code)?;
 
@@ -53,7 +53,7 @@ pub fn run_as_admin(path: &str, params: Option<&str>) -> Result<u32> {
         continue;
       }
 
-      return Ok(exit_code);      
+      return Ok(exit_code);
     }
   }
 }

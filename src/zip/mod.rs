@@ -54,7 +54,11 @@ impl From<windows::core::Error> for ZipInstallError {
 }
 
 impl<'a> ZipInstaller<'a> {
-  pub fn new<T: AsRef<str>>(file: T, id: &'a str, data: ZipShortcut<'a>) -> Result<Self, ZipInstallError> {
+  pub fn new<T: AsRef<str>>(
+    file: T,
+    id: &'a str,
+    data: ZipShortcut<'a>,
+  ) -> Result<Self, ZipInstallError> {
     let file = file.as_ref();
     let file = File::open(file).map_err(ZipInstallError::StdIO)?;
 
