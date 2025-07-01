@@ -3,8 +3,10 @@ async fn main() {
   run_msix();
 }
 
+use std::env::args;
 use windortortent::{
-  ahqdb::{AHQDBApplication, BasicShortcutInfo}, common::run_as_admin, zip::link::Type
+  ahqdb::{AHQDBApplication, BasicShortcutInfo}, 
+  zip::link::Type
 };
 use windows::Win32::System::Com::{
   COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx,
@@ -15,23 +17,31 @@ fn run_msix() {
     _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
   };
 
-  let cmd = r#"-ExecutionPolicy Bypass -NoExit -Command "& { `$env:AHQ=`"welp`" ; (cat `"E:\GitHub\windortortent\install.ps1`" | iex)" }"#;
+  let args = args().collect::<Vec<_>>();
 
-  println!("{cmd}");
+  if args.len() == 3 && &args[1] == "--helper" {
+    println!("{args:?}");
+    return;
+  }
 
-  run_as_admin("powershell.exe", Some(cmd)).unwrap();
+  // let cmd = r#"-ExecutionPolicy Bypass -NoExit -Command "& { `$env:AHQ=`"welp`" ; (cat `"E:\GitHub\windortortent\install.ps1`" | iex)" }"#;
 
-  // let mut app = AHQDBApplication::new(
-  //   "./app.ahqdb",
-  //   "initial",
-  //   BasicShortcutInfo {
-  //     desktop: false,
-  //     start_menu_folder: Some("AHQ Store Applications"),
-  //   },
-  // )
-  // .unwrap();
+  // println!("{cmd}");
 
-  // app.install("packages", Type::CurrentUser).unwrap();
+  // run_as_admin("powershell.exe", Some(cmd)).unwrap();
+
+  let mut app = AHQDBApplication::new(
+    "sample",
+    "./app.ahqdb",
+    "initial",
+    BasicShortcutInfo {
+      desktop: false,
+      start_menu_folder: Some("AHQ Store Applications"),
+    },
+  )
+  .unwrap();
+
+  app.uninstall("packages", Type::CurrentUser).unwrap();
 
   // use crate::winrt::metadata::MsixBundle;
   // use crate::winrt::MSIXPackageManager;

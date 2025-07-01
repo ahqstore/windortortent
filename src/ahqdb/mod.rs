@@ -5,12 +5,16 @@ use std::{fs::File, io::Read};
 use serde::{Deserialize, Serialize};
 use zip::ZipArchive;
 
-use crate::zip::link::{ShortcutCreationInfo, Type};
+use crate::ahqdb::ps1::install::{run_install_ps1, run_uninstall_ps1};
+use crate::ahqdb::ps1::run_is_installed_ps1;
+use crate::utils::is_admin;
+use crate::zip::link::{link, unlink, ShortcutCreationInfo, Type};
 use crate::zip::ZipShortcut;
 
 mod ps1;
 
 pub struct AHQDBApplication<'a> {
+  app_id: &'a str,
   version: &'a str,
   file: ZipArchive<File>,
   shortcut: BasicShortcutInfo<'a>,
@@ -46,6 +50,7 @@ pub enum AHQDBError {
   Toml(toml::de::Error),
   NotElevated,
   InvalidAHQDBFile,
+  InvalidOutCode(i32)
 }
 
 impl From<zip::result::ZipError> for AHQDBError {
@@ -74,6 +79,7 @@ impl From<toml::de::Error> for AHQDBError {
 
 impl<'a> AHQDBApplication<'a> {
   pub fn new<T: AsRef<str>>(
+    app_id: &'a str,
     path: T,
     version: &'a str,
     shortcut: BasicShortcutInfo<'a>,
@@ -84,6 +90,7 @@ impl<'a> AHQDBApplication<'a> {
     let archive = ZipArchive::new(file)?;
 
     let mut out = Self {
+      app_id,
       file: archive,
       shortcut,
       shortcut_info: None,
@@ -103,7 +110,6 @@ impl<'a> AHQDBApplication<'a> {
     let is_installed = self.file.by_name("isInstalled.ps1")?.is_file();
     let _build = self.file.by_name(".build")?.is_file();
 
-    // ERROR HERE
     let dist = self.file.by_name("dist/")?.is_dir();
 
     let mut link_data = self.file.by_name("link.toml")?;
@@ -120,30 +126,41 @@ impl<'a> AHQDBApplication<'a> {
     Err(AHQDBError::InvalidAHQDBFile)
   }
 
-  pub fn install<T: AsRef<str>>(
+  pub fn is_installed<T: AsRef<str>>(
     &mut self,
     dir: T,
-    _ty: Type,
-  ) -> Result<ShortcutCreationInfo, AHQDBError> {
+    ty: Type
+  ) -> Result<bool, AHQDBError> {
     let dir = dir.as_ref();
 
-    let dist_final = format!(r"{dir}\dist_{}", self.version);
+    // This is directory where the files are extracted
+    let script = format!(r"{dir}\ahqdb\isInstalled.ps1");
 
-    _ = fs::remove_dir_all(dir);
-    fs::create_dir_all(&dist_final)?;
+    // AHQ Database Dir
+    let dist = format!(r"{dir}\dist_{}", self.version);
 
-    self.file.extract(format!(r"{dir}\ahqdb"))?;
+    run_is_installed_ps1(&script, &dist, &ty)
+  }
 
-    let ahqdb_dist = format!(r"{dir}\ahqdb\dist");
-    copy_dir_all(&ahqdb_dist, &dist_final)?;
-    
-    // Remove old ahqdb_dist
-    fs::remove_dir_all(ahqdb_dist)?;
+  pub fn uninstall<T: AsRef<str>>(
+    &mut self,
+    dir: T,
+    ty: Type,
+  ) -> Result<(), AHQDBError> {
+    if let Type::AllUsers = ty {
+      if !is_admin().unwrap_or(false) {
+        return Err(AHQDBError::NotElevated);
+      }
+    }
+
+    let dir = dir.as_ref();
+
+    // This is directory where the files are extracted
+    let dist = format!(r"{dir}\dist_{}", self.version);
 
     // Powershell Step
-
-
-    // Linking Step
+    // Runs uninstall.ps1
+    run_uninstall_ps1("../ahqdb/uninstall.ps1", &dist, &ty)?;
 
     // Safety
     // it'll never ever panic, guaranteed by the [`Self::new`] function
@@ -157,20 +174,88 @@ impl<'a> AHQDBApplication<'a> {
     } = self.shortcut_info.as_ref().unwrap();
 
     if !ignore.unwrap_or(false) {
-      ZipShortcut {
+      let shortcut = ZipShortcut {
         args: args.as_deref(),
         description: description.as_deref(),
         exe: exe.as_str(),
         desktop: self.shortcut.desktop,
-        start_menu_dir: self.shortcut.start_menu_folder.clone(),
+        start_menu_dir: self.shortcut.start_menu_folder.as_deref(),
         icon: icon.as_ref().map(|(string, num)| 
           (string.as_ref(), *num)
         ),
         name: name.as_str()
       };
+
+      unlink(&shortcut, self.app_id, ty)?;
     }
 
-    Ok(ShortcutCreationInfo::AllOk)
+    // Remove old ahqdb_dist completely
+    fs::remove_dir_all(dir)?;
+
+    Ok(())
+  }
+
+  pub fn install<T: AsRef<str>>(
+    &mut self,
+    dir: T,
+    ty: Type,
+  ) -> Result<ShortcutCreationInfo, AHQDBError> {
+    if let Type::AllUsers = ty {
+      if !is_admin().unwrap_or(false) {
+        return Err(AHQDBError::NotElevated);
+      }
+    }
+
+    let dir = dir.as_ref();
+
+    let dist_final = format!(r"{dir}\dist_{}", self.version);
+
+    _ = fs::remove_dir_all(dir);
+    fs::create_dir_all(&dist_final)?;
+
+    self.file.extract(format!(r"{dir}\ahqdb"))?;
+
+    let ahqdb_dist = format!(r"{dir}\ahqdb\dist");
+    copy_dir_all(&ahqdb_dist, &dist_final)?;
+    
+    // Remove just deployed ahqdb_dist
+    fs::remove_dir_all(ahqdb_dist)?;
+
+    // Powershell Step
+    run_install_ps1("../ahqdb/install.ps1", &dist_final, &ty)?;
+
+    // Safety
+    // it'll never ever panic, guaranteed by the [`Self::new`] function
+    let ADBShortcut {
+      args,
+      description,
+      exe,
+      icon,
+      ignore,
+      name
+    } = self.shortcut_info.as_ref().unwrap();
+
+    let mut out = ShortcutCreationInfo::AllOk;
+
+    if !ignore.unwrap_or(false) {
+      let shortcut = ZipShortcut {
+        args: args.as_deref(),
+        description: description.as_deref(),
+        exe: exe.as_str(),
+        desktop: self.shortcut.desktop,
+        start_menu_dir: self.shortcut.start_menu_folder.as_deref(),
+        icon: icon.as_ref().map(|(string, num)| 
+          (string.as_ref(), *num)
+        ),
+        name: name.as_str()
+      };
+
+      out = link(&shortcut, &dist_final, self.app_id, ty)?;
+    }
+
+    // We'll keep ahqdb folder for the powershell 
+    // Hence its not removed
+    Ok(out)
   }
 }
 
