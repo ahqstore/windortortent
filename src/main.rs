@@ -41,7 +41,7 @@ fn run_msix() {
   )
   .unwrap();
 
-  app.uninstall("packages", Type::CurrentUser).unwrap();
+  app.install("packages", Type::CurrentUser).unwrap();
 
   // use crate::winrt::metadata::MsixBundle;
   // use crate::winrt::MSIXPackageManager;

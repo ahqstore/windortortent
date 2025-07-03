@@ -1,8 +1,10 @@
 use std::fs;
+use std::mem::transmute;
 use std::path::Path;
 use std::{fs::File, io::Read};
 
 use serde::{Deserialize, Serialize};
+use tokio::task::spawn_blocking;
 use zip::ZipArchive;
 
 use crate::ahqdb::ps1::install::{run_install_ps1, run_uninstall_ps1};
@@ -45,12 +47,19 @@ pub struct BasicShortcutInfo<'a> {
 pub enum AHQDBError {
   ZipError(zip::result::ZipError),
   TokioIO(tokio::io::Error),
+  TokioJoinError(tokio::task::JoinError),
   StdIO(std::io::Error),
   Windows(windows::core::Error),
   Toml(toml::de::Error),
   NotElevated,
   InvalidAHQDBFile,
   InvalidOutCode(i32)
+}
+
+impl From<tokio::task::JoinError> for AHQDBError {
+  fn from(value: tokio::task::JoinError) -> Self {
+    Self::TokioJoinError(value)
+  }
 }
 
 impl From<zip::result::ZipError> for AHQDBError {
@@ -126,6 +135,26 @@ impl<'a> AHQDBApplication<'a> {
     Err(AHQDBError::InvalidAHQDBFile)
   }
 
+  /// SAFETY:
+  /// This function uses `unsafe` and strict caller discipline to avoid undefined behavior
+  /// The function must be awaited and resolved before self goes out of scope
+  pub async fn async_is_installed(
+    self,
+    dir: String,
+    ty: Type
+  ) -> Result<(bool, Self), AHQDBError> {
+    let data: AHQDBApplication<'static> = unsafe { transmute(self) };
+
+    spawn_blocking(move || {
+      let mut data = data;
+
+      let out = data.is_installed(dir, ty)?;
+      let result = (out, data);
+
+      Ok(result)
+    }).await?
+  }
+
   pub fn is_installed<T: AsRef<str>>(
     &mut self,
     dir: T,
@@ -140,6 +169,25 @@ impl<'a> AHQDBApplication<'a> {
     let dist = format!(r"{dir}\dist_{}", self.version);
 
     run_is_installed_ps1(&script, &dist, &ty)
+  }
+
+  /// ## SAFETY:
+  /// This function uses `unsafe` and strict caller discipline to avoid undefined behavior
+  /// The function must be awaited and resolved before self goes out of scope
+  pub async fn async_uninstall(
+    self,
+    dir: String,
+    ty: Type
+  ) -> Result<Self, AHQDBError> {
+    let data: AHQDBApplication<'static> = unsafe { transmute(self) };
+
+    spawn_blocking(move || {
+      let mut data = data;
+
+      data.uninstall(dir, ty)?;
+
+      Ok(data)
+    }).await?
   }
 
   pub fn uninstall<T: AsRef<str>>(
@@ -193,6 +241,25 @@ impl<'a> AHQDBApplication<'a> {
     fs::remove_dir_all(dir)?;
 
     Ok(())
+  }
+
+  /// ## SAFETY:
+  /// This function uses `unsafe` and strict caller discipline to avoid undefined behavior
+  /// The function must be awaited and resolved before self goes out of scope
+  pub async fn async_install(
+    self,
+    dir: String,
+    ty: Type
+  ) -> Result<(ShortcutCreationInfo, Self), AHQDBError> {
+    let data: AHQDBApplication<'static> = unsafe { transmute(self) };
+
+    spawn_blocking(move || {
+      let mut data = data;
+
+      let info = data.install(dir, ty)?;
+
+      Ok((info, data))
+    }).await?
   }
 
   pub fn install<T: AsRef<str>>(

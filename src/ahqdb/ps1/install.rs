@@ -17,7 +17,7 @@ pub fn run_install_ps1(
 
   Command::new("powershell.exe")
     .raw_arg(command)
-    //.creation_flags(0x08000000)
+    .creation_flags(0x08000000)
     .current_dir(ahqdb_dir)
     .spawn()?
     .wait()

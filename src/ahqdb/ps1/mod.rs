@@ -3,6 +3,7 @@ use std::{os::windows::process::CommandExt, process::Command};
 use crate::{ahqdb::{ps1::install::to_pwsh_string, AHQDBError}, zip::link::Type};
 
 pub mod install;
+pub mod update;
 
 pub fn run_is_installed_ps1(
   script: &str,
@@ -10,10 +11,11 @@ pub fn run_is_installed_ps1(
   ty: &Type
 ) -> Result<bool, AHQDBError> {
   let script_path = to_pwsh_string(script);
+  let ahqdb = to_pwsh_string(ahqdb_dir);
 
   let command = match ty {
-    Type::AllUsers => format!(r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='AdminMode'; (cat '{}' | iex)}}""#, script_path),
-    Type::CurrentUser => format!(r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='UserMode'; (cat '{}' | iex)}}""#, script_path)
+    Type::AllUsers => format!(r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='AdminMode'; $env:AHQDB_INSTALL_DIR='{}'; (cat '{}' | iex)}}""#, ahqdb, script_path),
+    Type::CurrentUser => format!(r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='UserMode'; $env:AHQDB_INSTALL_DIR='{}'; (cat '{}' | iex)}}""#, ahqdb, script_path)
   };
 
   let code = Command::new("powershell.exe")
