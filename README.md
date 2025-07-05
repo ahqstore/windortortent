@@ -1,8 +1,8 @@
 ![Windortortent - Your Universal Windows Application Installer / Social Image](./readme/social.png)
 
-# <img src="./readme/icon.png" height="21" /> Windortortent
+# <img src="./readme/icon.png" width="40" height="40" alt="Logo" align="center" /> Windortortent
 
-> A part of **<img src="https://ahqstore.github.io/favicon.png" height="12" /> AHQ Store** Project
+> A part of **<img src="https://ahqstore.github.io/favicon.png" width="18" height="18" alt="Logo" align="center"/> AHQ Store** Project
 
 **Windortortent** is a Windows-exclusive installer module for the [AHQ Store](https://github.com/ahqstore/client), designed to handle executable-based application formats.
 
