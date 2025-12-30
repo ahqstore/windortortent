@@ -33,9 +33,11 @@ serde-xml-rs = "0.8"
 
 toml = { version = "0.9", optional = true }
 
-rhai = { version = "1", optional = true }
+rhai = { version = "1", features = ["no_std"], optional = true }
 windows-registry = { version = "0.6", optional = true }
+regex = "1.12.2"
 
 [features]
+default = ["experimental-ahqdb"]
 experimental-ahqdb = ["dep:rhai", "dep:windows-registry", "dep:toml"]
 legacy-experimental-ahqdb = ["dep:toml"]
