@@ -13,6 +13,7 @@ use rhai::{
 use std::{
   fs::File,
   io::Read,
+  mem::transmute,
   ops::Deref,
   path::Path,
   sync::{Arc, nonpoison::Mutex},
@@ -44,6 +45,11 @@ pub struct AHQDBInstruction {
   /// May be `true` only if update
   pub patch_old: bool,
   pub inst: Vec<ActionInstruction>,
+}
+
+pub enum UpdateInfo {
+  None,
+  Update { old_root: String },
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -197,13 +203,32 @@ impl<'a> AHQDB<'a> {
     eng
   }
 
-  pub fn get_instructions(&mut self, update: bool) -> Result<AHQDBInstruction> {
+  pub fn get_instructions(&mut self, update: UpdateInfo) -> Result<AHQDBInstruction> {
     let mut eng = Self::generate_rhai();
 
     let data: Arc<Mutex<_>> = Arc::new(Mutex::new(AHQDBInstruction {
       inst: vec![],
       patch_old: false,
     }));
+
+    /* Get the script */
+    let mut script_file = self
+      .zip
+      .by_path(if matches!(update, UpdateInfo::Update { .. }) {
+        "./scripts/update.rhai"
+      } else {
+        "./scripts/install.rhai"
+      })?;
+
+    if script_file.size() > 256 * 1024 {
+      return Err(AHQDBError::InvalidScript);
+    }
+
+    /* Setup Modules */
+    let mut script = String::default();
+    script_file.read_to_string(&mut script)?;
+
+    drop(script_file);
 
     let mut module = Module::new();
     {
@@ -215,7 +240,7 @@ impl<'a> AHQDB<'a> {
       FuncRegistration::new("download_and_unzip")
         .with_namespace(FnNamespace::Global)
         .set_into_module(&mut module, move |asset: String, dir: String| {
-          if perms1.contains(&asset) && secure_logical_resolve(Path::new("/"), &dir).is_ok() {
+          if perms1.contains(&asset) && secure_logical_resolve(None, Path::new("/"), &dir).is_ok() {
             data1
               .lock()
               .inst
@@ -232,7 +257,8 @@ impl<'a> AHQDB<'a> {
       FuncRegistration::new("download_and_copy")
         .with_namespace(FnNamespace::Global)
         .set_into_module(&mut module, move |asset: String, path: String| {
-          if perms2.contains(&asset) && secure_logical_resolve(Path::new("/"), &path).is_ok() {
+          if perms2.contains(&asset) && secure_logical_resolve(None, Path::new("/"), &path).is_ok()
+          {
             data2
               .lock()
               .inst
@@ -246,8 +272,66 @@ impl<'a> AHQDB<'a> {
           )));
         });
 
-      if update {
+      if let UpdateInfo::Update { old_root } = update {
         let data3 = data.clone();
+
+        let peek: &'static ZipArchive<File> = unsafe { transmute(&self.zip) };
+
+        FuncRegistration::new("fs_read_string")
+          .with_namespace(FnNamespace::Global)
+          .set_into_module(&mut module, move |file: &str| {
+            let path = if file.starts_with("old://") {
+              let Ok(path) = secure_logical_resolve(Some("old://"), Path::new(&old_root), file)
+              else {
+                return Err(Box::new(EvalAltResult::ErrorRuntime(
+                  Dynamic::from("Error, invalid path"),
+                  Position::START,
+                )));
+              };
+
+              path
+            } else if file.starts_with("new://") {
+              let Ok(path) = secure_logical_resolve(Some("new://"), Path::new("./dist"), file)
+              else {
+                return Err(Box::new(EvalAltResult::ErrorRuntime(
+                  Dynamic::from("Error, invalid path"),
+                  Position::START,
+                )));
+              };
+
+              let Ok(mut f) = peek.by_path(path) else {
+                return Err(Box::new(EvalAltResult::ErrorRuntime(
+                  Dynamic::from("Error, invalid path"),
+                  Position::START,
+                )));
+              };
+
+              if f.size() > 256 * 1024 {
+                return Err(Box::new(EvalAltResult::ErrorRuntime(
+                  Dynamic::from("Error, too large"),
+                  Position::START,
+                )));
+              }
+
+              let mut data = String::default();
+
+              let Ok(_) = f.read_to_string(&mut data) else {
+                return Err(Box::new(EvalAltResult::ErrorRuntime(
+                  Dynamic::from("Error, invalid UTF8"),
+                  Position::START,
+                )));
+              };
+
+              data
+            } else {
+              return Err(Box::new(EvalAltResult::ErrorRuntime(
+                Dynamic::from("Error, invalid root"),
+                Position::START,
+              )));
+            };
+
+            Ok(())
+          });
 
         FuncRegistration::new("commit_old")
           .with_namespace(FnNamespace::Global)
@@ -270,20 +354,6 @@ impl<'a> AHQDB<'a> {
     }
 
     eng.register_static_module("ahqstore", module.into());
-
-    /* Run the script */
-    let mut script_file = self.zip.by_path(if update {
-      "./scripts/update.rhai"
-    } else {
-      "./scripts/install.rhai"
-    })?;
-
-    if script_file.size() > 256 * 1024 {
-      return Err(AHQDBError::InvalidScript);
-    }
-
-    let mut script = String::default();
-    script_file.read_to_string(&mut script)?;
 
     eng.eval(&script).map_err(|_| AHQDBError::InvalidScript)?;
 

@@ -8,10 +8,14 @@ pub enum PathError {
   AbsolutePathsNotAllowed,
 }
 
-pub fn secure_logical_resolve(virtual_root: &Path, user_uri: &str) -> Result<String, PathError> {
+pub fn secure_logical_resolve(
+  prefix: Option<&str>,
+  virtual_root: &Path,
+  user_uri: &str,
+) -> Result<String, PathError> {
   // 1. Strip the scheme
   let path_str = user_uri
-    .strip_prefix("root://")
+    .strip_prefix(prefix.unwrap_or("root://"))
     .map_or(Err(PathError::InvalidPath), |x| Ok(x))?;
 
   let user_path = Path::new(path_str);
