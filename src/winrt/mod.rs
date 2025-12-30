@@ -3,7 +3,9 @@ use std::sync::Arc;
 use windows::{
   ApplicationModel::Package,
   Foundation::Uri,
-  Management::Deployment::{DeploymentOptions, PackageManager},
+  Management::Deployment::{
+    AddPackageByAppInstallerOptions, DeploymentOptions, DeploymentProgress, PackageManager,
+  },
   Win32::{
     Foundation::HANDLE,
     Security::{
@@ -14,6 +16,8 @@ use windows::{
   },
   core::{HSTRING, PWSTR, Result},
 };
+use windows_core::Ref;
+use windows_future::AsyncOperationProgressHandler;
 pub mod metadata;
 
 #[derive(Debug)]
@@ -56,7 +60,40 @@ impl MSIXPackageManager {
     Ok(Arc::new(Self(PackageManager::new()?)))
   }
 
-  pub async fn install<T: AsRef<str>>(&self, path: T) -> Result<()> {
+  pub async fn install_appinstaller<T: AsRef<str>, F: Fn(u32) + Send + Sync + 'static>(
+    &self,
+    path: T,
+    progress: F,
+  ) -> Result<()> {
+    let path = path.as_ref();
+
+    let path = HSTRING::from(path);
+
+    let uri = Uri::CreateUri(&path)?;
+
+    let opt = AddPackageByAppInstallerOptions::InstallAllResources
+      | AddPackageByAppInstallerOptions::ForceTargetAppShutdown;
+
+    let task = self.0.AddPackageByAppInstallerFileAsync(&uri, opt, None)?;
+
+    let handler =
+      AsyncOperationProgressHandler::new(move |_, prog: Ref<'_, DeploymentProgress>| {
+        let perc = prog.percentage as u32;
+
+        progress(perc);
+        Ok(())
+      });
+
+    task.SetProgress(&handler)?;
+
+    task.await?.ExtendedErrorCode()?.ok()
+  }
+
+  pub async fn install<T: AsRef<str>, F: Fn(u32) + Send + Sync + 'static>(
+    &self,
+    path: T,
+    progress: F,
+  ) -> Result<()> {
     let path = path.as_ref();
 
     let path = HSTRING::from(path);
@@ -66,6 +103,16 @@ impl MSIXPackageManager {
     let prog = self
       .0
       .AddPackageAsync(&uri, None, DeploymentOptions::InstallAllResources)?;
+
+    let handler =
+      AsyncOperationProgressHandler::new(move |_, prog: Ref<'_, DeploymentProgress>| {
+        let perc = prog.percentage as u32;
+
+        progress(perc);
+        Ok(())
+      });
+
+    prog.SetProgress(&handler)?;
 
     let result = prog.await?;
 

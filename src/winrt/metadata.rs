@@ -162,7 +162,14 @@ impl MsixBundle {
   }
 
   pub async fn install(&self) -> Win32Result<()> {
-    self.manager.install(&self).await
+    self.manager.install(&self, |_| {}).await
+  }
+
+  pub async fn install_with_progress<F: Fn(u32) + Send + Sync + 'static>(
+    &self,
+    progress: F,
+  ) -> Win32Result<()> {
+    self.manager.install(&self, progress).await
   }
 
   pub fn is_installed(&mut self) -> MsixBundleResult<bool> {

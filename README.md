@@ -6,13 +6,13 @@
 
 **Windortortent** is a Windows-exclusive installer module for the [AHQ Store](https://github.com/ahqstore/client), designed to handle executable-based application formats.
 
-It supports `.exe`, `.msi`, `.zip`, `.ahqdb`, `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
+It supports `.exe`, `.msi`, `.zip`, `.msix` application bundles, enabling seamless installations that may require user interaction or elevated permissions.
 
 ---
 
 ## Features
 
-- ✅ Installs `.exe`, `.msi`, `.ahqdb`, `.zip` and `.msix` application files
+- ✅ Installs `.exe`, `.msi`, `.zip` and `.msix` application files
 - ✅ Supports custom icons and descriptions
 - ✅ Integrated directly with the AHQ Store’s Windows installation flow
 
@@ -20,15 +20,16 @@ It supports `.exe`, `.msi`, `.zip`, `.ahqdb`, `.msix` application bundles, enabl
 
 ## Supported Formats
 
-| Format   | Description                  |
-| -------- | ---------------------------- |
-| `.exe`   | Standard Windows executables |
-| `.msix`  | Windows application packages |
-| `.msi`   | Standard Windows installers  |
-| `.zip`   | Compressed application files |
-| `.ahqdb` | AHQ Store database files     |
+| Format  | Description                  |
+| ------- | ---------------------------- |
+| `.exe`  | Standard Windows executables |
+| `.msix` | Windows application packages |
+| `.msi`  | Standard Windows installers  |
+| `.zip`  | Compressed application files |
 
-> Note: The `.ahqdb` format is a custom format used by the AHQ Store to store application metadata.
+<!--    | `.ahqdb`                     | AHQ Store database files | -->
+
+<!-- > Note: The `.ahqdb` format is a custom format used by the AHQ Store to store application metadata. -->
 
 ---
 

@@ -51,13 +51,22 @@ impl MsiPackage {
     }
   }
 
+  pub fn can_install(&self) -> bool {
+    match self.product_state() {
+      ProductState::Unknown | ProductState::Installed | ProductState::InstalledForDifferentUser => {
+        false
+      }
+      _ => true,
+    }
+  }
+
   pub fn install(&self) -> Result<()> {
     unsafe {
       let hstring = HSTRING::from(self.0.as_ref() as &str);
 
       let path = PCWSTR::from_raw(hstring.as_ptr());
 
-      let res = MsiInstallProductW(path, w!("ACTION=INSTALL UILevel=3"));
+      let res = MsiInstallProductW(path, w!("ACTION=INSTALL ALLUSERS=1 UILevel=2"));
 
       HRESULT::from_win32(res).ok()?;
 
@@ -71,7 +80,7 @@ impl MsiPackage {
 
       let path = PCWSTR::from_raw(hstring.as_ptr());
 
-      let res = MsiInstallProductW(path, w!("REMOVE=ALL UILevel=3"));
+      let res = MsiInstallProductW(path, w!("REMOVE=ALL ALLUSERS=1 UILevel=2"));
 
       HRESULT::from_win32(res).ok()?;
 

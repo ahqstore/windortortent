@@ -1,13 +1,16 @@
 use std::{os::windows::process::CommandExt, process::Command};
 
-use crate::{ahqdb::{ps1::install::to_pwsh_string, AHQDBError}, zip::link::Type};
+use crate::{
+  ahqdb_legacy::{AHQDBError, ps1::install::to_pwsh_string},
+  zip::link::Type,
+};
 
 pub fn run_update_ps1(
   script: &str,
   ahqdb_old_dir: &str,
   ahqdb_new_dir: &str,
   build: &str,
-  ty: &Type
+  ty: &Type,
 ) -> Result<bool, AHQDBError> {
   let script_path = to_pwsh_string(script);
 
@@ -15,8 +18,16 @@ pub fn run_update_ps1(
   let old = to_pwsh_string(ahqdb_old_dir);
 
   let command = match ty {
-    Type::AllUsers => format!(r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='AdminMode'; $env:AHQDB_OLD_INSTALL_DIR='{old}'; $env:AHQDB_NEW_INSTALL_DIR='{new}'; $env:OLD_BUILD='{build}'; (cat '{}' | iex)}}""#, script_path, build = build),
-    Type::CurrentUser => format!(r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='UserMode'; $env:AHQDB_OLD_INSTALL_DIR='{old}'; $env:AHQDB_NEW_INSTALL_DIR='{new}'; $env:OLD_BUILD='{build}'; (cat '{}' | iex)}}""#, script_path, build = build)
+    Type::AllUsers => format!(
+      r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='AdminMode'; $env:AHQDB_OLD_INSTALL_DIR='{old}'; $env:AHQDB_NEW_INSTALL_DIR='{new}'; $env:OLD_BUILD='{build}'; (cat '{}' | iex)}}""#,
+      script_path,
+      build = build
+    ),
+    Type::CurrentUser => format!(
+      r#"-ExecutionPolicy Bypass -Command "& {{$env:EXECUTION_MODE='UserMode'; $env:AHQDB_OLD_INSTALL_DIR='{old}'; $env:AHQDB_NEW_INSTALL_DIR='{new}'; $env:OLD_BUILD='{build}'; (cat '{}' | iex)}}""#,
+      script_path,
+      build = build
+    ),
   };
 
   let code = Command::new("powershell.exe")
