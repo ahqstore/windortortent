@@ -31,13 +31,12 @@ windows-future = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde-xml-rs = "0.8"
 
-toml = { version = "0.9", optional = true }
+toml = { version = "0.9" }
 
-rhai = { version = "1", features = ["no_std"], optional = true }
-windows-registry = { version = "0.6", optional = true }
+rhai = { version = "1", features = ["no_std", "serde"] }
+windows-registry = { version = "0.6" }
 regex = "1.12.2"
 
 [features]
-default = ["experimental-ahqdb"]
-experimental-ahqdb = ["dep:rhai", "dep:windows-registry", "dep:toml"]
-legacy-experimental-ahqdb = ["dep:toml"]
+default = []
+legacy-experimental-ahqdb = []

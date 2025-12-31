@@ -7,7 +7,6 @@
 )]
 pub mod ahqdb_legacy;
 
-#[cfg(feature = "experimental-ahqdb")]
 pub mod ahqdb;
 
 pub mod av;

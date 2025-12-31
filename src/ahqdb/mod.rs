@@ -8,12 +8,12 @@
 use serde::{Deserialize, Serialize};
 
 use rhai::{
-  Dynamic, Engine, EvalAltResult, FnNamespace, FuncRegistration, Module, Position, exported_module,
+  Dynamic, Engine, EvalAltResult, FnNamespace, FuncRegistration, Module, NativeCallContext,
+  Position, exported_module,
 };
 use std::{
   fs::File,
   io::Read,
-  mem::transmute,
   ops::Deref,
   path::Path,
   sync::{Arc, nonpoison::Mutex},
@@ -54,14 +54,14 @@ pub enum UpdateInfo {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AHQDBManifest {
-  windows: AHQDBWindowsManifest,
+  pub windows: AHQDBWindowsManifest,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AHQDBWindowsManifest {
-  aumid: Option<String>,
-  links: Vec<AHQDBWindowsLink>,
-  allowed: Vector,
+  pub aumid: Option<String>,
+  pub links: Vec<AHQDBWindowsLink>,
+  pub allowed: Vector,
 }
 
 #[derive(Debug)]
@@ -96,12 +96,12 @@ impl<'de> Deserialize<'de> for Vector {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AHQDBWindowsLink {
-  name: String,
-  exe: String,
-  description: Option<String>,
-  args: Option<String>,
+  pub name: String,
+  pub exe: String,
+  pub description: Option<String>,
+  pub args: Option<String>,
   // Default (exe, 0)
-  icon: Option<(String, i32)>,
+  pub icon: Option<(String, i32)>,
 }
 
 pub type Result<T> = core::result::Result<T, AHQDBError>;
@@ -155,9 +155,9 @@ impl From<tokio::io::Error> for AHQDBError {
 }
 
 pub struct AHQDB<'a> {
-  app_id: &'a str,
+  pub app_id: &'a str,
   zip: ZipArchive<File>,
-  manifest: AHQDBWindowsManifest,
+  pub manifest: AHQDBWindowsManifest,
 }
 
 impl<'a> AHQDB<'a> {
@@ -189,16 +189,16 @@ impl<'a> AHQDB<'a> {
 
     eng
       .set_max_operations(100_000)
-      .set_max_array_size(20)
-      .set_max_functions(5)
+      .set_max_array_size(50)
+      .set_max_functions(10)
       .set_max_map_size(10)
       .set_max_call_levels(10)
       .set_max_variables(20)
       .set_max_string_size(256 * 1024)
       .set_allow_loop_expressions(false)
-      .set_allow_anonymous_fn(false)
-      .set_allow_looping(false)
-      .set_max_expr_depths(10, 10);
+      .set_allow_anonymous_fn(true)
+      .set_allow_looping(true)
+      .set_max_expr_depths(40, 10);
 
     eng
   }
@@ -240,9 +240,14 @@ impl<'a> AHQDB<'a> {
       FuncRegistration::new("download_and_unzip")
         .with_namespace(FnNamespace::Global)
         .set_into_module(&mut module, move |asset: String, dir: String| {
+          let mut data = data1.lock();
+
+          if data.len() >= 30 {
+            Err::<()>("Error: Only 30 instructions are allowed!")?;
+          }
+
           if perms1.contains(&asset) && secure_logical_resolve(None, Path::new("/"), &dir).is_ok() {
-            data1
-              .lock()
+            data
               .inst
               .push(ActionInstruction::DownloadUnzip { asset, dir });
             return Ok(());
@@ -257,10 +262,15 @@ impl<'a> AHQDB<'a> {
       FuncRegistration::new("download_and_copy")
         .with_namespace(FnNamespace::Global)
         .set_into_module(&mut module, move |asset: String, path: String| {
+          let mut data = data2.lock();
+
+          if data.len() >= 30 {
+            Err::<()>("Error: Only 30 instructions are allowed!")?;
+          }
+
           if perms2.contains(&asset) && secure_logical_resolve(None, Path::new("/"), &path).is_ok()
           {
-            data2
-              .lock()
+            data
               .inst
               .push(ActionInstruction::DownloadCopy { asset, path });
             return Ok(());
@@ -275,54 +285,42 @@ impl<'a> AHQDB<'a> {
       if let UpdateInfo::Update { old_root } = update {
         let data3 = data.clone();
 
-        let peek: &'static ZipArchive<File> = unsafe { transmute(&self.zip) };
+        let peek: Arc<*mut ZipArchive<File>> = Arc::new(&mut self.zip);
+
+        FuncRegistration::new("parse_json")
+          .with_namespace(FnNamespace::Global)
+          .set_into_module(&mut module, move |ctx: NativeCallContext, data: &str| {
+            if data.len() > 128 * 1024 {
+              Err::<rhai::Map>("Too long")?;
+            }
+
+            ctx.engine().parse_json(data, true)
+          });
 
         FuncRegistration::new("fs_read_string")
           .with_namespace(FnNamespace::Global)
           .set_into_module(&mut module, move |file: &str| {
-            let path = if file.starts_with("old://") {
-              let Ok(path) = secure_logical_resolve(Some("old://"), Path::new(&old_root), file)
-              else {
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                  Dynamic::from("Error, invalid path"),
-                  Position::START,
-                )));
-              };
+            // 1. Resolve the path and Reader based on the scheme
+            let (reader, size_hint) = if let Some(path_str) = file.strip_prefix("old://") {
+              let path = secure_logical_resolve(Some("old://"), Path::new(&old_root), path_str)
+                .map_err(|_| "Error, invalid path")?;
 
-              path
-            } else if file.starts_with("new://") {
-              let Ok(path) = secure_logical_resolve(Some("new://"), Path::new("./dist"), file)
-              else {
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                  Dynamic::from("Error, invalid path"),
-                  Position::START,
-                )));
-              };
+              let file = File::open(path).map_err(|_| "Error, invalid path")?;
+              let size = file.metadata().map(|m| m.len()).unwrap_or(0);
+              (Box::new(file) as Box<dyn Read>, size)
+            } else if let Some(path_str) = file.strip_prefix("new://") {
+              let path = secure_logical_resolve(Some("new://"), Path::new("./dist"), path_str)
+                .map_err(|_| "Error, invalid path")?;
 
-              let Ok(mut f) = peek.by_path(path) else {
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                  Dynamic::from("Error, invalid path"),
-                  Position::START,
-                )));
-              };
+              let backend = unsafe { &mut **peek.as_ref() };
 
-              if f.size() > 256 * 1024 {
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                  Dynamic::from("Error, too large"),
-                  Position::START,
-                )));
-              }
+              let f = backend.by_path(path).map_err(|_| "Error, invalid path")?;
+              let size = f.size(); // Assuming this is from your custom trait
 
-              let mut data = String::default();
-
-              let Ok(_) = f.read_to_string(&mut data) else {
-                return Err(Box::new(EvalAltResult::ErrorRuntime(
-                  Dynamic::from("Error, invalid UTF8"),
-                  Position::START,
-                )));
-              };
-
-              data
+              // We need to read 'f' here. If 'f' implements Read, we can box it.
+              // If 'f' isn't a standard Read, you might need to read it to a string here directly.
+              // For this example, assuming 'f' implies a reader:
+              (Box::new(f) as Box<dyn Read>, size)
             } else {
               return Err(Box::new(EvalAltResult::ErrorRuntime(
                 Dynamic::from("Error, invalid root"),
@@ -330,7 +328,32 @@ impl<'a> AHQDB<'a> {
               )));
             };
 
-            Ok(())
+            // 2. Enforce Size Limit (Unified Logic)
+            if size_hint > 256 * 1024 {
+              return Err(Box::new(EvalAltResult::ErrorRuntime(
+                Dynamic::from("Error, too large"),
+                Position::START,
+              )));
+            }
+
+            // 3. Perform the Read (Unified Logic)
+            // Using 'take' strictly enforces the limit during the read operation,
+            // fixing the race condition for standard files.
+            let mut data = String::new();
+            reader
+              .take(256 * 1024 + 1)
+              .read_to_string(&mut data)
+              .map_err(|_| "Error, read failed")?;
+
+            // Double check explicit size in case 'size_hint' was wrong (e.g. file grew)
+            if data.len() > 256 * 1024 {
+              return Err(Box::new(EvalAltResult::ErrorRuntime(
+                Dynamic::from("Error, too large"),
+                Position::START,
+              )));
+            }
+
+            Ok(data)
           });
 
         FuncRegistration::new("commit_old")
