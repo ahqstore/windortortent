@@ -291,7 +291,7 @@ impl<'a> AHQDB<'a> {
           .with_namespace(FnNamespace::Global)
           .set_into_module(&mut module, move |ctx: NativeCallContext, data: &str| {
             if data.len() > 128 * 1024 {
-              Err::<rhai::Map>("Too long")?;
+              Err::<rhai::Map, _>("Too long")?;
             }
 
             ctx.engine().parse_json(data, true)
