@@ -242,8 +242,8 @@ impl<'a> AHQDB<'a> {
         .set_into_module(&mut module, move |asset: String, dir: String| {
           let mut data = data1.lock();
 
-          if data.len() >= 30 {
-            Err::<()>("Error: Only 30 instructions are allowed!")?;
+          if data.inst.len() >= 30 {
+            Err::<(), _>("Error: Only 30 instructions are allowed!")?;
           }
 
           if perms1.contains(&asset) && secure_logical_resolve(None, Path::new("/"), &dir).is_ok() {
@@ -264,8 +264,8 @@ impl<'a> AHQDB<'a> {
         .set_into_module(&mut module, move |asset: String, path: String| {
           let mut data = data2.lock();
 
-          if data.len() >= 30 {
-            Err::<()>("Error: Only 30 instructions are allowed!")?;
+          if data.inst.len() >= 30 {
+            Err::<(), _>("Error: Only 30 instructions are allowed!")?;
           }
 
           if perms2.contains(&asset) && secure_logical_resolve(None, Path::new("/"), &path).is_ok()
